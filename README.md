@@ -1,117 +1,154 @@
-# Machine Learning Analysis: Regression, Dimensionality Reduction & Classification
+# IMDb Movie Analysis
 
-A three part machine learning study exploring OLS regression stability, PCA/LDA dimensionality reduction on nutritional data, and KNN/QDA classification with feature selection. Each analysis is implemented in a self contained Jupyter Notebook using scikit-learn, NumPy, Pandas, Matplotlib, and Seaborn.
+Exploratory data analysis and hypothesis testing on IMDb movie and ratings data, examining how demographics, budget, genre, and release timing relate to movie ratings and revenue.
 
 ---
 
-## Repository Structure
+## Project Structure
 
 ```
-├── P1.ipynb              # Analysis 1 — OLS Regression & Regularization
-├── P2.ipynb              # Analysis 2 — PCA & LDA on Nutritional Data
-├── P3.ipynb              # Analysis 3 — KNN, QDA & Backward Feature Selection
-└── data-analysis.pdf     # Full written analysis with figures
+.
+├── P1.ipynb              # EDA — genre/gender/age preferences, budget-rating relationship, seasonal patterns
+├── P2.ipynb              # Demographic epicycle — age and gender effects on action movie ratings
+├── P3.ipynb              # Budget epicycle — budget influence on gross revenue by genre (ANOVA)
+├── IMDb movies.csv       # Movie metadata (title, year, genre, budget, gross income, etc.)
+├── IMDb ratings.csv      # Demographic rating breakdowns (age group × gender average votes)
+└── README.md
 ```
 
 ---
 
-## Analysis 1 — OLS Stability & Ridge Regularization (`P1.ipynb`)
+## Data
 
-**Goal:** Evaluate how sensitive Ordinary Least Squares regression is to random data splits, and whether L2 regularization (Ridge) can improve generalization.
+Two CSV files are required in the project root:
 
-### Part 1 — OLS Stability across Randomized Splits
-- Ran 500 independent train/test splits (50/50) using random seeds
-- Computed the pseudoinverse solution on each training set and recorded the test R²
-- **Findings:** R² was approximately normally distributed with a mode of 0.78 and mean of 0.66, but the distribution was left-skewed with an extreme outlier at −0.40. A negative R² indicates the model performed worse than simply predicting the mean, exposing high sensitivity to sampling variation.
-
-### Part 2 — Effect of Noisy Predictors on OLS
-- Generated synthetic data with a controlled signal and incrementally added up to 30 noise features
-- Averaged training and test R² over 100 trials per noise level
-- **Findings:** Training R² climbed from 0.91 (1 noise feature) to 0.97 (30 noise features), while test R² fell from 0.90 to 0.71 — a clear overfitting signature caused by OLS fitting spurious correlations in noisy channels.
-
-### Part 3 — Ridge Regression Stability
-- Applied L2 regularization (λ = 0 to 2) using the same 500-split experiment
-- **Findings:** Mean test R² rose sharply from 0.65 (λ = 0) to a peak of 0.76 at λ = 0.40, then gradually declined as the penalty became too aggressive. This confirms the bias-variance tradeoff: a moderate penalty reduces variance enough to improve generalization without introducing excessive bias.
-
-**Key Libraries:** `sklearn.linear_model.LinearRegression`, `Ridge`, `numpy`, `matplotlib`, `seaborn`
+| File | Description |
+|---|---|
+| `IMDb movies.csv` | Movie metadata: title, year, date published, genre, budget, USA/worldwide gross income |
+| `IMDb ratings.csv` | Ratings broken down by gender (male/female) and age group (<18, 18–29, 30–45, 45+) |
 
 ---
 
-## Analysis 2 — PCA & LDA on Nutritional Data (`P2.ipynb`)
+## Dependencies
 
-**Goal:** Evaluate unsupervised (PCA) and supervised (LDA) dimensionality reduction on a 46-feature nutritional dataset spanning 14 food categories.
-
-### Part 1 — PCA on the Original (Unstandardized) Dataset
-- Features used exclude class labels, text descriptors, and unique identifiers
-- **Findings:** Only 5 principal components were needed to capture 95% of variance — a warning sign. The first component was dominated almost entirely by Vitamin A (IU scale), and the second by Lycopene, obscuring all other nutritional relationships. The resulting scatter plot showed apparent but misleading separation between just two food groups, driven entirely by scale artifacts rather than true nutritional patterns.
-
-### Part 2 — PCA with Feature Standardization
-- Applied `StandardScaler` before PCA to equalize feature influence
-- **Findings:** 28 components were now required to capture 95% of variance, reflecting a much more balanced spread of information. Feature contributions became evenly distributed, and the 2-component scatter revealed meaningful nutritional axes: PC1 corresponded to overall nutrient density (vitamins positive, water negative) and PC2 to fat content (lipids/fatty acids positive, water/vitamins negative). Food groups — beverages, general foods, baby foods — separated along these nutritional axes.
-
-### Part 3 — LDA vs. PCA Comparison
-- Applied LDA to the standardized dataset using class labels to maximize between-class separation
-- **Findings:** LDA required only 8 discriminant components to reach 95% explained variance, versus 28 for PCA, indicating high linear separability in the feature space. The 2-component LDA projection produced far tighter, more distinct clusters than PCA. LD1 was driven by water and protein content; LD2 by vitamin A and retinol. Cluster structure on the held-out validation set mirrored the training projection, confirming the model did not overfit on noise.
-
-**Key Libraries:** `sklearn.decomposition.PCA`, `sklearn.discriminant_analysis.LinearDiscriminantAnalysis`, `sklearn.preprocessing.StandardScaler`, `sklearn.impute.SimpleImputer`, `scipy.sparse`, `matplotlib`, `seaborn`
-
----
-
-## Analysis 3 — KNN, QDA & Backward Feature Selection (`P3.ipynb`)
-
-**Goal:** Compare a non-parametric classifier (KNN) and a parametric classifier (QDA) on the nutritional dataset, then use Backward Sequential Feature Selection to identify the most informative features.
-
-### Part 1 — K-Nearest Neighbors Classification
-- Standardized features before training; evaluated across k = 1 to 20 neighbors
-- **At k = 1:** Training accuracy was 100% (each point is its own neighbor) and validation accuracy reached ~87%. Misclassifications occurred only between nutritionally similar groups (lamb/beef; fruits/vegetables), suggesting the model learned meaningful boundaries.
-- **As k increased:** Both training and validation accuracy steadily declined, converging near 80% by k = 17, indicating that averaging too many distant neighbors introduces underfitting.
-
-### Part 2 — Quadratic Discriminant Analysis Classification
-- Applied QDA with regularization parameter λ swept from 0 to 1 to stabilize covariance estimates
-- **Findings:** Initial training accuracy (~75%) and validation accuracy (~67%) were substantially lower than KNN, suggesting that food groups do not follow the multivariate Gaussian distributions assumed by QDA. A local validation accuracy peak emerged near λ = 0.90, where regularization briefly stabilized covariance matrices and optimized the bias-variance tradeoff before excessive rigidity collapsed predictive power.
-
-### Part 3 — Backward Sequential Feature Selection
-- Selected the best model (KNN, k = 1) as the wrapper estimator
-- Used 5-fold cross-validation with iterative feature pruning to identify the 10 most informative features
-- Excluded `Unnamed: 0` (row index) to prevent data leakage — including it inflated accuracy to ~95% by letting the model exploit the original sorted ordering of the data rather than nutritional content
-- **Selected features:** Water, Protein, Ash, Potassium, Selenium, Riboflavin, Food Folate, FA_Sat, FA_Poly, GmWt_1
-- **Interpretation:** These features align with known nutritional separators. Water content distinguishes high-moisture groups (fruits, vegetables) from dry products (baked goods). Protein separates meat groups from cereals and sweets. Fatty acid profiles (FA_Sat, FA_Poly) differentiate animal products from plant-based categories.
-
-**Key Libraries:** `sklearn.neighbors.KNeighborsClassifier`, `sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis`, `sklearn.feature_selection.SequentialFeatureSelector`, `sklearn.preprocessing.StandardScaler`, `matplotlib`, `seaborn`
-
----
-
-## Setup & Requirements
+Install all required packages:
 
 ```bash
-pip install numpy pandas scikit-learn matplotlib seaborn scipy
+pip install pandas numpy matplotlib seaborn scipy statsmodels
 ```
 
-Python 3.8+ recommended. Run each notebook independently — they have no cross-dependencies.
+Or install per notebook:
+
+```bash
+# P1 and P2
+pip install scipy
+
+# P3 (adds statsmodels for two-way ANOVA)
+pip install scipy statsmodels
+```
 
 ---
 
-## Key Takeaways
+## Notebooks
 
-| Topic | Finding |
+### P1 — EDA (`P1.ipynb`)
+
+Answers five exploratory questions across three topic areas:
+
+**Genre & Gender**
+Computes weighted average ratings (minimum 100 votes per gender) for the top 6 genres and compares male vs. female averages via a dumbbell plot. Females rate consistently higher across all genres; the largest gap is Romance (+0.25) and the smallest is Crime (+0.14). The overall magnitude is small relative to the 1–10 scale, suggesting rating style differences rather than strong genre-specific preferences.
+
+**Age & Genre**
+Constructs a genre × age-group heatmap of average ratings. Ratings decline monotonically with age across all genres (Drama range: 7.11 for <18 vs. 6.42 for 45+). Genre preference ordering is stable across age groups: Drama > Romance ≈ Crime > Comedy > Action > Thriller.
+
+**Budget & Ratings**
+Bins movies into seven budget tiers and visualizes the rating distribution using violin plots. Higher budget tiers show tighter, higher-median distributions. Variance is largest in the lowest budget tier, confirming that budget increases the floor of rating quality but is not the sole determinant of success.
+
+**Genre Trends Over Time (1900–2020)**
+Computes each genre's yearly share of total releases (smoothed with a 10-year rolling window) and fits a linear regression per genre. Action (r = 0.85) and Thriller (r = 0.98) show the strongest positive trends. Drama (r = −0.60) and Romance (r = −0.57) decline in share despite Drama remaining the most-released genre overall.
+
+**Seasonal Release Patterns**
+Maps release month to season and computes genre share within each season. Thriller, Crime, and Action are most concentrated in summer (17%, 14%, 14%). Romance and Comedy peak in winter (17%, 37%). This suggests release timing interacts with genre.
+
+---
+
+### P2 — Demographic Epicycle (`P2.ipynb`)
+
+Focuses on action-type movies (genres: Action, Adventure, Thriller, War).
+
+**Part 1 — Interaction Check**
+Computes weighted average ratings for four groups (young male, old male, young female, old female) where young = ages 0–29 and old = 30+. A line plot shows parallel slopes for both genders from young to old, and a scatter plot of male age-effect vs. female age-effect shows clustering near the identity line. A paired t-test on age-difference scores (young − old) per movie fails to reject the null of no gender × age interaction (p = 0.21). Age and gender act as independent additive factors.
+
+**Part 2 — Independent Effects**
+
+*Age effect:* Paired t-test on young vs. old ratings per movie: t = 20.67, p = 6.29 × 10⁻⁷¹. Younger viewers rate action movies 0.16 points higher on average (1.6% of scale). Null rejected.
+
+*Gender effect:* Paired t-test on female vs. male ratings per movie: t = 13.82, p = 1.45 × 10⁻³⁷. Female viewers rate action movies 0.20 points higher on average (2.0% of scale). Null rejected.
+
+Both effects are statistically significant but small in absolute terms. Rating-style differences (leniency bias) cannot be ruled out as a partial explanation.
+
+---
+
+### P3 — Budget Epicycle (`P3.ipynb`)
+
+Examines whether budget affects worldwide gross revenue, and whether this relationship differs between Drama and Action.
+
+**Part 1 — Mean Revenue by Budget and Genre**
+Budget is binarized at each genre's median into low/high. High-budget Action films earn ~$158M more on average than low-budget Action; high-budget Drama earns ~$48M more. The raw mean difference between genres is ~$109M in Action's favor.
+
+**Part 2 — Distribution Diagnostics**
+Boxplots on both raw and log-transformed revenue reveal severe right skew in the raw data. Mean-to-median ratios range from 2.01 (Action High) to 12.10 (Drama Low), confirming that outliers distort the Part 1 means. Log transformation is required before formal testing.
+
+**Part 3 — Two-Way ANOVA on Log Revenue**
+A Type II two-way ANOVA on log(worldwide gross income) with factors Genre and Budget:
+
+| Term | F | p |
+|---|---|---|
+| Genre | 635.38 | 1.83 × 10⁻¹³⁵ |
+| Budget | 3512.12 | < 0.001 |
+| Genre × Budget | 0.0002 | 0.989 |
+
+Both main effects are highly significant. The interaction term is not (p = 0.989), meaning budget provides a proportionally similar revenue boost across both genres on the log scale. The large raw-dollar difference seen in Part 1 is an artifact of outliers and baseline revenue differences between genres, not a differential budget sensitivity.
+
+---
+
+## Key Findings Summary
+
+| Analysis | Finding |
 |---|---|
-| OLS sensitivity | High variance across splits; single bad split yields R² < 0 |
-| Noisy features | Each additional noise predictor widens the train/test R² gap |
-| Ridge regularization | Optimal at λ ≈ 0.40; improves mean test R² from 0.65 → 0.76 |
-| PCA without scaling | Dominated by high-range features (Vitamin A, Lycopene); misleading |
-| PCA with scaling | 28 components for 95% variance; nutritionally interpretable axes |
-| LDA vs. PCA | LDA achieves 95% in 8 components; far tighter clusters |
-| KNN vs. QDA | KNN (87% valid.) outperforms QDA (67% valid.); data is non-Gaussian |
-| Feature selection | 10 features sufficient; water, protein, and fatty acids are key separators |
+| Gender × Genre | Females rate ~0.14–0.25 pts higher than males across genres; effects are small and consistent (likely rating-style differences) |
+| Age × Genre | Younger viewers rate higher across all genres; decline is monotonic with age |
+| Budget × Rating | Higher budgets associate with higher and less variable ratings, but low-budget films can still achieve high ratings |
+| Genre Trends | Action and Thriller growing in share; Drama and Romance declining since ~1960 |
+| Seasonal Patterns | Action genres peak in summer; Romance/Comedy peak in winter |
+| Budget × Revenue | Budget significantly boosts revenue regardless of genre (no interaction); genre sets the revenue baseline |
+| Age/Gender on Action | Both age (Δ = 0.16) and gender (Δ = 0.20) independently affect ratings; no interaction detected |
+
+---
+
+## Reproducing the Analysis
+
+1. Clone the repo and place `IMDb movies.csv` and `IMDb ratings.csv` in the project root.
+2. Install dependencies (see above).
+3. Run the notebooks in order: `P1.ipynb` → `P2.ipynb` → `P3.ipynb`. Each notebook is self-contained and re-loads the data independently.
+
+---
+
+## Limitations
+
+- **Causal claims are not supported.** All findings are observational. Correlations between budget and revenue may reflect studio selection effects (studios greenlight larger budgets for projects they already expect to succeed).
+- **Rating-style confounding.** Observed gender and age differences in average ratings may reflect systematic leniency or severity biases, not genuine preference differences.
+- **Currency normalization absent.** Budget and gross income values span decades and are not adjusted for inflation, which affects budget-tier categorization and revenue comparisons.
+- **Genre is multi-label.** Movies belong to multiple genres; analysis treats genre membership as non-exclusive (binary indicator columns), so totals across genres exceed 100%.
+- **Seasonal analysis conflates release count with performance.** The heatmap shows percentage of movies released per season, not average rating by season. High release counts do not imply high average quality.
 
 ---
 
 ## References
 
-- Buitinck et al. (2013). *API design for machine learning software: experiences from the scikit-learn project.* ECML PKDD Workshop. https://arxiv.org/abs/1309.0238
-- Galarnyk, M. (2024). *PCA in Python tutorial with scikit-learn.* Built In. https://builtin.com/machine-learning/pca-in-python
-- Singh, R. (2021). *Forward and backward subset selection method.* Kaggle. https://www.kaggle.com/code/jurk06/forward-and-backward-subset-selection-method
-- Hunter, J. (2003). *Matplotlib API Reference.* https://matplotlib.org/stable/api/index.html
-- Waskom, M. (2013). *Seaborn API Reference.* https://seaborn.pydata.org/api.html
+- Hunter, J. (2003). Matplotlib API Reference. https://matplotlib.org/stable/api/index.html
+- McKinney, W. (2009). Pandas API Reference. https://pandas.pydata.org/docs/reference/index.html
+- Waskom, M. (2013). Seaborn API Reference. https://seaborn.pydata.org/api.html
+- GeeksforGeeks (2025). How to perform a two-way ANOVA in Python. https://www.geeksforgeeks.org/machine-learning/how-to-perform-a-two-way-anova-in-python/
 
 > Documentation written with AI assistance. All analysis, code, and results are the author's own work.
